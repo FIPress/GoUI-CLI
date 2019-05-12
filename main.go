@@ -6,45 +6,80 @@ import (
 )
 
 const (
-	sampleDir = "./sample"
+	sampleDir         = "./sample"
+	packageConfigFile = "package.conf"
 	//commandNeeded = "Please enter a task you "
 	nameNeeded = "Please specify a directory/project name."
 	fileExists = "File exists and is not a directory:"
 	dirExists  = "Dir exists and not empty:"
 )
 
+var (
+
+	//tempDir       string
+	executable string
+	simulator  = true
+)
+
 func main() {
 	initLogger()
+
 	args := os.Args[1:]
+
 	l := len(args)
+
 	if l == 0 {
-		help()
+		showHelp()
 		return
 	}
 
-	switch args[0] {
-	case "create":
-		if l == 1 {
-			fmt.Println(nameNeeded)
+	//cxt.initTask(args[0])
+	task := taskFromString(args[0])
+	if task == help {
+		showHelp()
+		return
+	} else {
+		if l < 2 {
+			showHelp()
 			return
 		}
-		create(args[1])
-		break
-	case "build":
-		if l == 1 {
-			fmt.Println(nameNeeded)
+
+		ctx, ok := newContext()
+		if !ok {
+			showHelp()
 			return
 		}
-		build(args[1:])
-		break
-	case "run":
-		run(args[1:])
-	default:
-		help()
+
+		if task == create {
+			createProject(args[1], ctx)
+		} else {
+			ctx.loadConfig()
+			pkger, ok := getPackager(ctx, args[1])
+
+			if pkger.getPlatform() == unknown {
+				showHelp()
+				return
+			}
+
+			if !ok {
+				return
+			}
+
+			pkger.create()
+		}
 	}
 
 }
 
-func help() {
+func showHelp() {
 
+}
+
+func info(a ...interface{}) {
+	fmt.Println(a...)
+}
+
+func errorf(format string, a ...interface{}) {
+	//fmt.Errorf(format,a...)
+	fmt.Printf(format, a...)
 }

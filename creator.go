@@ -5,78 +5,62 @@ import (
 	"github.com/fipress/fiputil"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 )
 
 const (
-	confFile   = "package.conf"
-	tmplSuffix = ".tmpl"
+	packageConfTmpl = `
+# This config file is for GoUI-CLI to package your app
+name={{.Name}}
+versionCode={{.VersionCode}}
+versionName={{.VersionName}}
+`
 )
 
-type PackageConfig struct {
-	Name string
-}
-
-func create(name string) {
-	fi, err := os.Stat(name)
+func createProject(name string, ctx *context) {
+	fullPath := filepath.Join(ctx.workingDir, name)
+	fi, err := os.Stat(fullPath)
 	if err == nil {
 		if !fi.IsDir() {
-			fmt.Println(fileExists, name)
+			fmt.Println(fileExists, fullPath)
 			return
 		}
 
 		if fi.Size() > 100 {
-			fmt.Println(dirExists, name)
+			fmt.Println(dirExists, fullPath)
 			return
 		}
 	} else {
-		err = os.MkdirAll(name, 0755)
+		err = os.MkdirAll(fullPath, 0755)
 		if err != nil {
-			fmt.Println("Create directory", name, " error:", err)
+			fmt.Println("Create directory", fullPath, " error:", err)
 			return
 		}
 	}
 
-	exPath, err := getExecutableDir()
-	if err != nil {
-		fmt.Println("Get executable directory failed, error:", err)
-		return
-	}
-
-	src := filepath.Join(exPath, sampleDir)
-	err = fiputil.CopyDir(src, name, func(name string) bool {
-		return !strings.HasSuffix(name, "tmpl")
-	})
+	src := filepath.Join(ctx.binDir, sampleDir)
+	err = fiputil.CopyDir(src, fullPath, nil)
+	/*func(fullPath string) bool {
+		return !strings.HasSuffix(fullPath, "tmpl")
+	}*/
 	if err != nil {
 		fmt.Println("Copy directory failed, error:", err)
 		return
 	}
 
-	t, err := template.ParseFiles(filepath.Join(src, confFile+tmplSuffix))
-	if err != nil {
-		fmt.Println("Template config file not found")
-		return
-	}
-
-	out, err := os.OpenFile(filepath.Join(name, confFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		fmt.Println("Create config file failed")
-		return
-	}
-	t.Execute(out, PackageConfig{Name: name})
+	createConfigFile(fullPath, name)
 
 	fmt.Println("A new project created.")
 }
 
-func getExecutableDir() (exPath string, err error) {
-	ex, err := os.Executable()
+func createConfigFile(path, name string) {
+	t := template.Must(template.New("").Parse(packageConfTmpl))
+
+	dest, err := os.OpenFile(filepath.Join(path, packageConfigFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
+		//fmt.Println("Create config file failed")
+		errorf("Create config file failed")
 		return
 	}
-	exPath = filepath.Dir(ex)
-	fmt.Println("exe path", exPath)
-	exPath, err = filepath.EvalSymlinks(exPath)
-	fmt.Println("after eval symbol links:", exPath)
-	return
+	t.Execute(dest, PackageConfig{Name: name, VersionCode: "1", VersionName: "1.0"})
 }

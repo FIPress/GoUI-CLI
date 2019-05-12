@@ -10,10 +10,6 @@ const tmplS = `package main
 goui.Platform = "{{.Platform}}"
 `
 
-func getPlatform() {
-
-}
-
 var tmpl, _ = template.New("").Parse(tmplS)
 
 type settings struct {

@@ -1,119 +1,163 @@
 package main
 
 import (
-	"fmt"
-	"github.com/fipress/fiputil"
-	"github.com/fipress/fml"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+// archType
+type archType int
 
 const (
-	darwin    = "darwin"
-	archArm   = "arm"
-	archAmd   = "amd64"
-	assetDir  = "assets"
-	plistFile = "Info.plist"
+	a386 archType = iota
+	amd64
+	arm
+	arm64
 )
 
-var (
-	packageConfig PackageConfig
-	buildDir      string
-	tempDir       string
-	executable    string
-)
-
-func build(args []string) {
-	parsePackageConfig()
-	var err error
-	switch args[0] {
-	case "ios":
-		err = createIOSApp()
-		break
-	case "macos":
-		err = createMacOSApp()
-		break
-	case "android":
-		err = createApk()
-		break
-	case "ubuntu":
-		err = createUbuntu()
-		break
-	case "windows":
-		break
-	}
-	if err != nil {
-		logger.Info("Package done")
-	}
+var archStrings = []string{"386", "amd64", "arm", "arm64"}
+var archAndroidToolchains = []androidToolchain{
+	{
+		abi:         "x86",
+		toolPrefix:  "i686-linux-android",
+		clangPrefix: "i686-linux-android16",
+	},
+	{
+		abi:         "x86_64",
+		toolPrefix:  "x86_64-linux-android",
+		clangPrefix: "x86_64-linux-android21",
+	},
+	{
+		abi:         "armeabi-v7a",
+		toolPrefix:  "arm-linux-androideabi",
+		clangPrefix: "armv7a-linux-androideabi16",
+	},
+	{
+		abi:         "arm64-v8a",
+		toolPrefix:  "aarch64-linux-android",
+		clangPrefix: "aarch64-linux-android21",
+	},
 }
 
-func parsePackageConfig() {
-	cfg, err := fml.Load(confFile)
-	if err != nil {
-		fmt.Println("get config failed")
-		return
+func archFromString(s string) archType {
+	for k, v := range archStrings {
+		if v == strings.ToLower(s) {
+			return archType(k)
+		}
 	}
-	packageConfig.Name = cfg.GetString("name", "GoUIApp")
+	return amd64
 }
 
-func runBuildCmd(platform, platformOS, arch string) (err error) {
-	buildDir = filepath.Join("build", platform)
-	tempDir = filepath.Join(buildDir, "temp")
-	executable = filepath.Join(tempDir, packageConfig.Name)
+func (a archType) String() string {
+	return archStrings[a]
+}
+
+func (a archType) androidToolchain() androidToolchain {
+	return archAndroidToolchains[a]
+}
+
+// end of archType
+
+type packager interface {
+	create()
+	getPlatform() platformType
+}
+
+type packagerBase struct {
+	*context
+	platform  platformType
+	outputDir string
+}
+
+func (base *packagerBase) getPlatform() platformType {
+	return base.platform
+}
+
+func getPackager(ctx *context, platform string) (pkger packager, ok bool) {
+	base := &packagerBase{
+		context:  ctx,
+		platform: platformFromString(platform),
+	}
+
+	//todo: parse -o from args instead of "build"
+	base.outputDir = filepath.Join(base.workingDir, "build", base.platform.String())
+
+	switch base.platform {
+	case android:
+		pkger, ok = newAndroidPackager(base)
+		break
+	case iOS:
+		pkger = newIOSPackager(base)
+		break
+	case macOS:
+		pkger = newMacOSPackager(base)
+		break
+	case ubuntu:
+		//ok = createUbuntu()
+		break
+	case windows:
+		break
+	}
+	/*if ok {
+		info("Packaging done")
+	} else {
+		info("Packaging failed")
+	}*/
+	return
+}
+
+func createApp() {
+
+}
+
+type builder struct {
+	output        string
+	platform      platformType
+	arch          archType
+	clangPath     string
+	clangPlusPath string
+	args          []string
+	//env []string
+}
+
+func (b *builder) addArg(s string) {
+	b.args = append(b.args, s)
+}
+
+/*
+func (b builder) addEnv(s string)  {
+	b.env = append(b.env,s)
+}*/
+
+func (b *builder) build() bool {
+	//executable = filepath.Join(tempDir, packageConfig.Name)
 	//genSettings(settings{Platform:platform})
 
-	cmd := NewCommand("go", "build", "-v", "-o", executable /*,"-ldflags=\"-extld=$CC\""*/)
-	cmd.Env = []string{"GOARM=7", "GOOS=" + platformOS, "GOARCH=" + arch, "CGO_ENABLED=1"}
+	cmd := NewCommand("go", "build", "-v", "-o", b.output)
+	cmd.Env = []string{
+		"GOOS=" + b.platform.OS(),
+		"GOARCH=" + b.arch.String(),
+		"CC=" + b.clangPath,
+		"CXX=" + b.clangPlusPath,
+		"GO111MODULE=off",
+		"CGO_ENABLED=1"}
+	cmd.Args = append(cmd.Args, b.args...)
 
-	err = cmd.Run(os.Stdout, os.Stderr, 0)
+	if b.arch == arm {
+		cmd.Env = append(cmd.Env, "GOARM=7")
+	}
+
+	err := cmd.Run(os.Stdout, os.Stderr, 0)
 	//delSettings()
 	if err != nil {
-		logger.Error("build executable failed:", err)
+		errorf("build executable failed: %s", err.Error())
+		return false
 	}
-	return
+	return true
 }
 
-func createApp(platform, arch string, copyFunc func()) (err error) {
-	err = runBuildCmd(platform, darwin, arch)
-
-	if err != nil {
-		return
-	}
-
-	copyFunc()
-	pkgPath := filepath.Join(buildDir, packageConfig.Name+".app")
-	err = os.Rename(tempDir, pkgPath)
-	if err != nil {
-		logger.Error("Rename failed:", err)
-	}
-	logger.Info("Created package:", pkgPath)
-	return
-}
-
-func createIOSApp() (err error) {
-	//todo: other archs
-	platform := "iOS"
-	return createApp(platform, archArm, func() {
-		fiputil.CopyDir("web", filepath.Join(tempDir, "web"), nil)
-		fiputil.CopyFile(filepath.Join(assetDir, platform, plistFile), filepath.Join(tempDir, plistFile))
-	})
-}
-
-func createMacOSApp() (err error) {
-	//todo: other archs
-	platform := "macOS"
-	return createApp(platform, archAmd, func() {
-		fiputil.CopyFile(filepath.Join(assetDir, platform, plistFile), filepath.Join(tempDir, plistFile))
-		fiputil.CopyFile(executable, filepath.Join(tempDir, "MacOS", packageConfig.Name))
-		fiputil.CopyDir("web", filepath.Join(tempDir, "Resources", "web"), nil)
-	})
-
-}
-
-func createDmg() {
-
-}
-
+/*
 func createApk() (err error) {
 	platform := "android"
 	err = runBuildCmd(platform, platform, archArm)
@@ -123,15 +167,15 @@ func createApk() (err error) {
 	}
 
 	return
-}
+}*/
 
 func createUbuntu() (err error) {
-	platform := "linux"
+	/*platform := "linux"
 	err = runBuildCmd(platform, platform, archAmd)
 
 	if err != nil {
 		return
-	}
+	}*/
 
 	return
 }

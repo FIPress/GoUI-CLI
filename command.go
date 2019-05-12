@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const defaultTimeout = 5 * time.Second
+const defaultTimeout = 20 * time.Second
 
 type Command struct {
 	Cmd  string

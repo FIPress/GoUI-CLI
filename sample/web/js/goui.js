@@ -30,11 +30,13 @@ window.goui = (function() {
                     data = JSON.stringify(data);
                 }
                 if (window.webkit) {
+                    alert("webkit");
                     window.webkit.messageHandlers.goui.postMessage(data);
-                } else if (1==2){
-                    //todo: windows
+                } else if (window.gouiAndroid){
+                    alert("gouiAndroid");
+                    window.gouiAndroid.handleMessage(data);
                 } else {
-                    //todo: linux
+                    //todo: windows
                 }
 
             };
