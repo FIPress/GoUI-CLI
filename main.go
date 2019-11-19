@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -22,8 +21,6 @@ var (
 )
 
 func main() {
-	initLogger()
-
 	args := os.Args[1:]
 
 	l := len(args)
@@ -54,9 +51,15 @@ func main() {
 			createProject(args[1], ctx)
 		} else {
 			ctx.loadConfig()
-			pkger, ok := getPackager(ctx, args[1])
+			pkg, ok := getPackager(ctx, args[1])
 
-			if pkger.getPlatform() == unknown {
+			if l > 2 {
+				if args[2] == "-prod" {
+					ctx.isProd = true
+				}
+			}
+
+			if pkg.getPlatform() == unknown {
 				showHelp()
 				return
 			}
@@ -65,7 +68,7 @@ func main() {
 				return
 			}
 
-			pkger.create()
+			pkg.create()
 		}
 	}
 
@@ -73,13 +76,4 @@ func main() {
 
 func showHelp() {
 
-}
-
-func info(a ...interface{}) {
-	fmt.Println(a...)
-}
-
-func errorf(format string, a ...interface{}) {
-	//fmt.Errorf(format,a...)
-	fmt.Printf(format, a...)
 }

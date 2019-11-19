@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/fipress/fiputil"
-	"github.com/fipress/fml"
+	"github.com/fipress/go-rj"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	manifestFile    = "AndroidManifest.xml"
-	unaligned       = "-unaligned.apk"
-	unsigned        = "-unsigned.apk"
-	androidConfTmpl = `
+	androidManifestFile = "AndroidManifest.xml"
+	androidPackageFile  = "AndroidPackage.rj"
+	unaligned           = "-unaligned.apk"
+	unsigned            = "-unsigned.apk"
+	androidConfTmpl     = `
 sdkPath={{.SdkPath}}
 ndkPath={{.NdkPath}}
 compileSdkVersion={{.SdkVersion}}
@@ -69,17 +70,12 @@ type androidPackager struct {
 	androidCfg     *androidConfig
 	androidJar     string
 	buildToolsPath string
-	apkName        string
-	srcPath        string
-	tempDir        string
 	manifestPath   string
 	extraFiles     []string
 }
 
 func newAndroidPackager(base *packagerBase) (packager, bool) {
-	return &androidPackager{packagerBase: base,
-		srcPath: filepath.Join(base.workingDir, base.platform.String()),
-		tempDir: filepath.Join(base.outputDir, "temp")}, true
+	return &androidPackager{packagerBase: base}, true
 }
 
 func (ap *androidPackager) create() {
@@ -88,8 +84,6 @@ func (ap *androidPackager) create() {
 		os.Remove(ap.tempDir)
 	}
 	os.MkdirAll(ap.tempDir, 0766)
-
-	ap.apkName = strings.ToLower(ap.packageConfig.Name)
 
 	steps := []func() bool{ap.getAndroidConfig,
 		ap.writeManifestXML,
@@ -115,9 +109,9 @@ func (ap *androidPackager) getAndroidConfig() bool {
 	if err != nil {
 		fiputil.CopyDir(filepath.Join(ap.binDir, ap.platform.String()), androidDir, nil)
 	}
-	cfgFile := filepath.Join(ap.workingDir, ap.platform.String(), "androidPackage.conf")
+	cfgFile := filepath.Join(ap.workingDir, ap.platform.String(), androidPackageFile)
 	cfg := new(androidConfig)
-	err = fml.UnmarshalFile(cfgFile, cfg)
+	err = rj.UnmarshalFile(cfgFile, cfg)
 	ap.androidCfg = cfg
 	if err != nil {
 		cfg.SdkPath = os.Getenv("ANDROID_HOME")
@@ -150,6 +144,7 @@ func (ap *androidPackager) getAndroidConfig() bool {
 			return false
 		}
 
+		//todo: marshal
 		t := template.Must(template.New("config").Parse(androidConfTmpl))
 		dest, err := os.OpenFile(cfgFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
@@ -244,12 +239,24 @@ func (ap *androidPackager) newAndroidBuilder(arch archType) (b *builder, ok bool
 	output := filepath.Join(ap.tempDir, "lib", toolchain.abi, "libgoui.so")
 
 	b = &builder{
-		arch:          arch,
-		output:        output,
-		clangPath:     clangPath,
-		clangPlusPath: toolchain.getToolPath(ap.androidCfg.NdkPath, "clang++")}
+		arch:   arch,
+		output: output,
+		//ccPath:  clangPath,
+		//cxxPath: toolchain.getToolPath(ap.androidCfg.NdkPath, "clang++")
+	}
 	ok = true
 	ap.extraFiles = append(ap.extraFiles, libPath)
+
+	/*cmd.Env = []string{
+	"GOOS=" + b.platform.OS(),
+	"GOARCH=" + b.arch.String(),
+	"CC=" + b.ccPath,
+	"CXX=" + b.cxxPath,
+	"GO111MODULE=off",
+	"CGO_ENABLED=1"}*/
+	/*if b.arch == arm {
+		cmd.Env = append(cmd.Env, "GOARM=7")
+	}*/
 	return
 }
 
@@ -269,7 +276,7 @@ func (ap *androidPackager) buildJava() bool {
 		filepath.Join(srcPath, "org", "fipress", "goui", "android", "GoUIActivity.java"),
 	)
 
-	err = cmd.Run(os.Stdout, os.Stderr, 0)
+	err = cmd.Run()
 	if err != nil {
 		errorf("Build java code failed: %s", err.Error())
 		return false
@@ -289,7 +296,7 @@ func (ap *androidPackager) buildJava() bool {
 		clsPath)
 	//}
 
-	err = cmd.Run(os.Stdout, os.Stderr, 0)
+	err = cmd.Run()
 	if err != nil {
 		errorf("Generate dex failed: %s", err.Error())
 		return false
@@ -300,28 +307,28 @@ func (ap *androidPackager) buildJava() bool {
 	return true
 }
 
-type manifestConfig struct {
+type androidManifestConfig struct {
 	PackageConfig
 	SdkVersion string
 	Debug      bool
 }
 
 func (ap *androidPackager) writeManifestXML() bool {
-	manifestTemplPath := filepath.Join(ap.workingDir, ap.platform.String(), manifestFile)
-	manifestTempl, err := template.New(manifestFile).ParseFiles(manifestTemplPath)
+	manifestTemplPath := filepath.Join(ap.workingDir, ap.platform.String(), androidManifestFile)
+	manifestTempl, err := template.New(androidManifestFile).ParseFiles(manifestTemplPath)
 
 	if err != nil {
-		errorf("Get %s failed, please make sure it exists and in the right place.", manifestFile)
+		errorf("Get %s failed, please make sure it exists and in the right place.", androidManifestFile)
 		return false
 	}
 
-	ap.manifestPath = filepath.Join(ap.tempDir, manifestFile)
+	ap.manifestPath = filepath.Join(ap.tempDir, androidManifestFile)
 	file, err := os.Create(ap.manifestPath)
 	if err != nil {
 		errorf("Create manifest failed, %s", err.Error())
 		return false
 	}
-	err = manifestTempl.Execute(file, manifestConfig{ap.packageConfig, ap.androidCfg.SdkVersion, true})
+	err = manifestTempl.Execute(file, androidManifestConfig{ap.packageConfig, ap.androidCfg.SdkVersion, true})
 	if err != nil {
 		errorf("Generate manifest failed, %s", err.Error())
 		return false
@@ -338,13 +345,13 @@ func (ap *androidPackager) copyAssets() bool {
 func (ap *androidPackager) linkApk() bool {
 	aapt2 := ap.getBuildTool("aapt2")
 	cmd := NewCommand(aapt2, "link",
-		"-o", filepath.Join(ap.tempDir, ap.apkName+unaligned),
+		"-o", filepath.Join(ap.tempDir, ap.appName+unaligned),
 		"-I", ap.androidJar,
 		"-A", filepath.Join(ap.tempDir, "assets"),
 		"--manifest", ap.manifestPath,
 	)
 
-	err := cmd.Run(os.Stdout, os.Stderr, 0)
+	err := cmd.Run()
 	if err != nil {
 		errorf("Compile manifest failed: %s", err.Error())
 		return false
@@ -355,11 +362,11 @@ func (ap *androidPackager) linkApk() bool {
 func (ap *androidPackager) addFiles() bool {
 	aapt := ap.getBuildTool("aapt")
 	cmd := NewCommand(aapt, "add",
-		filepath.Join(ap.tempDir, ap.apkName+unaligned),
+		filepath.Join(ap.tempDir, ap.appName+unaligned),
 	)
 	cmd.Args = append(cmd.Args, ap.extraFiles...)
 	cmd.Dir = ap.tempDir
-	err := cmd.Run(os.Stdout, os.Stderr, 0)
+	err := cmd.Run()
 	if err != nil {
 		errorf("aapt add files failed: %s", err.Error())
 		return false
@@ -372,10 +379,10 @@ func (ap *androidPackager) zipalign() bool {
 	zipalign := ap.getBuildTool("zipalign")
 	cmd := NewCommand(zipalign, "-f",
 		"4",
-		filepath.Join(ap.tempDir, ap.apkName+unaligned),
-		filepath.Join(ap.outputDir, ap.apkName+unsigned),
+		filepath.Join(ap.tempDir, ap.appName+unaligned),
+		filepath.Join(ap.outputDir, ap.appName+unsigned),
 	)
-	err := cmd.Run(os.Stdout, os.Stderr, 0)
+	err := cmd.Run()
 	if err != nil {
 		errorf("zipalign apk failed: %s", err.Error())
 		return false
@@ -390,10 +397,10 @@ func (ap *androidPackager) sign() bool {
 	cmd := NewCommand(apksigner, "sign",
 		"--ks", filepath.Join(ap.workingDir, ap.platform.String(), "key", "goui-debug.jks"),
 		"--ks-pass", "pass:123456",
-		"--out", filepath.Join(ap.outputDir, ap.apkName+".apk"),
-		filepath.Join(ap.outputDir, ap.apkName+unsigned),
+		"--out", filepath.Join(ap.outputDir, ap.appName+".apk"),
+		filepath.Join(ap.outputDir, ap.appName+unsigned),
 	)
-	err := cmd.Run(os.Stdout, os.Stderr, 0)
+	err := cmd.Run()
 	if err != nil {
 		errorf("sign apk failed: %s", err.Error())
 		return false
@@ -426,10 +433,10 @@ func (ap *androidPackager) emulate() bool {
 	adb := getTool(adbPath)
 
 	cmd := NewCommand(adb, "uninstall", appID)
-	err := cmd.Run(os.Stdout, os.Stderr, 0)
+	err := cmd.Run()
 
-	cmd = NewCommand(adb, "install", filepath.Join(ap.outputDir, ap.apkName+".apk"))
-	err = cmd.Run(os.Stdout, os.Stderr, 0)
+	cmd = NewCommand(adb, "install", filepath.Join(ap.outputDir, ap.appName+".apk"))
+	err = cmd.Run()
 	if err != nil {
 		errorf("install apk failed: %s", err.Error())
 		return false
@@ -439,7 +446,7 @@ func (ap *androidPackager) emulate() bool {
 		"-a", "android.intent.action.MAIN",
 		"-n", appID+"/.GoUIActivity")
 
-	err = cmd.Run(os.Stdout, os.Stderr, 0)
+	err = cmd.Run()
 	if err != nil {
 		errorf("start app failed: %s", err.Error())
 		return false

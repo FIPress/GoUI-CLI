@@ -46,10 +46,10 @@ func (dp *darwinPackager) runBuildCmd(arch string) (err error) {
 	cmd := NewCommand("go", "build", "-v", "-o", executable /*,"-ldflags=\"-extld=$CC\""*/)
 	cmd.Env = []string{"GOARM=7", "GOOS=" + dp.platform.OS(), "GOARCH=" + arch, "CGO_ENABLED=1"}
 
-	err = cmd.Run(os.Stdout, os.Stderr, 0)
+	err = cmd.Run()
 	//delSettings()
 	if err != nil {
-		logger.Error("build executable failed:", err)
+		fatal("build executable failed:", err)
 	}
 	return
 }

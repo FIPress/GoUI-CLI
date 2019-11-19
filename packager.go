@@ -1,10 +1,15 @@
 package main
 
 import (
+	"fmt"
+	"github.com/fipress/fiputil"
+	"github.com/fipress/go-rj"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+const defaultWebDir = "web"
 
 // archType
 type archType int
@@ -66,15 +71,35 @@ type packager interface {
 
 type packagerBase struct {
 	*context
-	platform  platformType
-	outputDir string
+	platform     platformType
+	platformDir  string
+	appName      string
+	outputDir    string
+	tempDir      string
+	srcPath      string
+	manifestPath string
 }
 
 func (base *packagerBase) getPlatform() platformType {
 	return base.platform
 }
 
-func getPackager(ctx *context, platform string) (pkger packager, ok bool) {
+func (base *packagerBase) getPackageCfg(cfg interface{}) {
+	dir := filepath.Join(base.workingDir, base.platform.String())
+	_, err := os.Stat(dir)
+	if err != nil {
+		fiputil.CopyDir(filepath.Join(base.binDir, base.platform.String()), dir, nil)
+	}
+
+	cfgFile := filepath.Join(dir, "package.rj")
+
+	err = rj.UnmarshalFile(cfgFile, cfg)
+	if err != nil {
+		logError("Unmarshalling the package.rj file for", base.platform, " failed:", err)
+	}
+}
+
+func getPackager(ctx *context, platform string) (pkg packager, ok bool) {
 	base := &packagerBase{
 		context:  ctx,
 		platform: platformFromString(platform),
@@ -82,21 +107,26 @@ func getPackager(ctx *context, platform string) (pkger packager, ok bool) {
 
 	//todo: parse -o from args instead of "build"
 	base.outputDir = filepath.Join(base.workingDir, "build", base.platform.String())
+	base.platformDir = filepath.Join(base.workingDir, base.platform.String())
+	base.srcPath = filepath.Join(base.workingDir, base.platform.String())
+	base.tempDir = filepath.Join(base.outputDir, "temp")
+	base.appName = strings.ToLower(base.packageConfig.Name)
 
 	switch base.platform {
 	case android:
-		pkger, ok = newAndroidPackager(base)
+		pkg, ok = newAndroidPackager(base)
 		break
 	case iOS:
-		pkger = newIOSPackager(base)
+		pkg = newIOSPackager(base)
 		break
 	case macOS:
-		pkger = newMacOSPackager(base)
+		pkg = newMacOSPackager(base)
 		break
 	case ubuntu:
 		//ok = createUbuntu()
 		break
 	case windows:
+		pkg, ok = newWindowsPackager(base)
 		break
 	}
 	/*if ok {
@@ -112,43 +142,41 @@ func createApp() {
 }
 
 type builder struct {
-	output        string
-	platform      platformType
-	arch          archType
-	clangPath     string
-	clangPlusPath string
-	args          []string
-	//env []string
+	output string
+	dir    string
+	os     string
+	arch   archType
+	isProd bool
+	//ccPath   string
+	//cxxPath  string
+	args []string
+	env  []string
 }
 
 func (b *builder) addArg(s string) {
 	b.args = append(b.args, s)
 }
 
-/*
-func (b builder) addEnv(s string)  {
-	b.env = append(b.env,s)
-}*/
+func (b *builder) addEnv(s string) {
+	b.env = append(b.env, s)
+}
 
 func (b *builder) build() bool {
 	//executable = filepath.Join(tempDir, packageConfig.Name)
 	//genSettings(settings{Platform:platform})
 
 	cmd := NewCommand("go", "build", "-v", "-o", b.output)
-	cmd.Env = []string{
-		"GOOS=" + b.platform.OS(),
-		"GOARCH=" + b.arch.String(),
-		"CC=" + b.clangPath,
-		"CXX=" + b.clangPlusPath,
-		"GO111MODULE=off",
-		"CGO_ENABLED=1"}
+	cmd.Env = append(b.env, "CGO_ENABLED=1")
+	cmd.Dir = b.dir
+	//"GO111MODULE=off"？
 	cmd.Args = append(cmd.Args, b.args...)
-
-	if b.arch == arm {
-		cmd.Env = append(cmd.Env, "GOARM=7")
+	if b.isProd {
+		cmd.Args = append(cmd.Args, "-tags", "prod")
+	} else {
+		cmd.Args = append(cmd.Args, "-tags", "dev")
 	}
-
-	err := cmd.Run(os.Stdout, os.Stderr, 0)
+	fmt.Println("env:", cmd.Env)
+	err := cmd.Run()
 	//delSettings()
 	if err != nil {
 		errorf("build executable failed: %s", err.Error())

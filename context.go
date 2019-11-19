@@ -44,7 +44,7 @@ const (
 
 var platformStrings = []string{"android", "ios", "macos", "ubuntu", "windows"}
 var platformOSs = []string{"android", "darwin", "darwin", "linux", "windows"}
-var platformArchs = [][]string{{""}, {"amd64", "amd"}, {"arm64", "arm"}, {""}, {""}}
+var platformArchs = [][]string{{""}, {"amd64", "amd"}, {"arm64", "arm"}, {""}, {"x64"}}
 
 func platformFromString(s string) platformType {
 	for k, v := range platformStrings {
@@ -79,6 +79,7 @@ type context struct {
 	packageConfig PackageConfig
 	workingDir    string
 	binDir        string
+	isProd        bool
 }
 
 func newContext() (c *context, ok bool) {

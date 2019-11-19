@@ -22,7 +22,7 @@ const envFile = "goui-env.go"
 func genSettings(st settings) {
 	f, err := os.OpenFile(envFile, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
-		logger.Error("Create config file failed")
+		fatal("Create config file failed")
 		return
 	}
 	tmpl.Execute(f, st)
@@ -31,7 +31,7 @@ func genSettings(st settings) {
 func delSettings() {
 	err := os.Remove(envFile)
 	if err != nil {
-		logger.Debug("remove settings file failed:", err)
+		info("remove settings file failed:", err)
 
 	}
 }

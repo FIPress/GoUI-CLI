@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/fipress/fiplog"
 	"io"
 	"os"
 	"os/exec"
@@ -23,7 +22,11 @@ func NewCommand(cmd string, args ...string) *Command {
 	return &Command{Cmd: cmd, Args: args}
 }
 
-func (c *Command) Run(stdout io.Writer, stderr io.Writer, timeout time.Duration) (err error) {
+func (c *Command) Run() (err error) {
+	return c.RunEx(os.Stdout, os.Stderr, 0)
+}
+
+func (c *Command) RunEx(stdout io.Writer, stderr io.Writer, timeout time.Duration) (err error) {
 	if timeout == 0 {
 		timeout = defaultTimeout
 	}
@@ -32,7 +35,7 @@ func (c *Command) Run(stdout io.Writer, stderr io.Writer, timeout time.Duration)
 
 	cmd := exec.Command(c.Cmd, c.Args...)
 
-	fiplog.GetLogger().Debug("exec:", c.Cmd, c.Args)
+	debug("exec:", c.Cmd, c.Args)
 
 	if stdout == nil {
 		stdout = new(bytes.Buffer)
@@ -68,14 +71,14 @@ func (c *Command) Run(stdout io.Writer, stderr io.Writer, timeout time.Duration)
 		}
 
 		<-done
-		fiplog.GetLogger().Debug("after timeout")
+		debug("after timeout")
 		err = fmt.Errorf("execute command timeout,[duration: %v]", timeout)
 		return
 	case err = <-done:
-		fiplog.GetLogger().Debug("after done")
+		debug("after done")
 	}
 
-	fiplog.GetLogger().Debug("after wait")
+	debug("after wait")
 	//stdout = stdoutBuf.Bytes()
 	//stdoutBuf.ReadBytes()
 	//stderr = stderrBuf.Bytes()
