@@ -9,7 +9,9 @@ import (
 	"strings"
 )
 
-const defaultWebDir = "web"
+const (
+	defaultWebDir = "web"
+)
 
 // archType
 type archType int
@@ -84,18 +86,18 @@ func (base *packagerBase) getPlatform() platformType {
 	return base.platform
 }
 
-func (base *packagerBase) getPackageCfg(cfg interface{}) {
+func (base *packagerBase) getPlatformPackageCfg(cfg interface{}) {
 	dir := filepath.Join(base.workingDir, base.platform.String())
 	_, err := os.Stat(dir)
 	if err != nil {
 		fiputil.CopyDir(filepath.Join(base.binDir, base.platform.String()), dir, nil)
 	}
 
-	cfgFile := filepath.Join(dir, "package.rj")
+	cfgFile := filepath.Join(dir, packageConfigFile)
 
 	err = rj.UnmarshalFile(cfgFile, cfg)
 	if err != nil {
-		logError("Unmarshalling the package.rj file for", base.platform, " failed:", err)
+		logError("Unmarshal the package.rj file for", base.platform, " failed:", err)
 	}
 }
 

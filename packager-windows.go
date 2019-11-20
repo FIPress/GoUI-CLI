@@ -41,7 +41,7 @@ type windowsPackager struct {
 }
 
 type windowsManifest struct {
-	PackageConfig
+	*packageConfig
 	Id              string
 	Publisher       string
 	PublisherName   string
@@ -80,7 +80,7 @@ func (wp *windowsPackager) create() {
 
 func (wp *windowsPackager) getWindowsConfig() bool {
 	wp.windowsCfg = new(windowsConfig)
-	wp.getPackageCfg(wp.windowsCfg)
+	wp.getPlatformPackageCfg(wp.windowsCfg)
 
 	if wp.windowsCfg.WindowsKitPath == "" || wp.windowsCfg.VcVarsPath == "" {
 		fatal("Get windows packaging config failed. Please check the 'package.rj' file under the 'windows' directory of the project")
@@ -188,7 +188,7 @@ func (wp *windowsPackager) writeManifestXML() bool {
 		errorf("Create manifest failed, %s", err.Error())
 		return false
 	}
-	err = manifestTempl.Execute(file, windowsManifest{PackageConfig: wp.packageConfig})
+	err = manifestTempl.Execute(file, windowsManifest{packageConfig: wp.packageConfig})
 	if err != nil {
 		errorf("Generate manifest failed, %s", err.Error())
 		return false

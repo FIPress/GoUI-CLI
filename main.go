@@ -6,7 +6,7 @@ import (
 
 const (
 	sampleDir         = "./sample"
-	packageConfigFile = "package.conf"
+	packageConfigFile = "package.rj"
 	//commandNeeded = "Please enter a task you "
 	nameNeeded = "Please specify a directory/project name."
 	fileExists = "File exists and is not a directory:"

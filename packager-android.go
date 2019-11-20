@@ -308,7 +308,7 @@ func (ap *androidPackager) buildJava() bool {
 }
 
 type androidManifestConfig struct {
-	PackageConfig
+	*packageConfig
 	SdkVersion string
 	Debug      bool
 }

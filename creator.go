@@ -5,7 +5,6 @@ import (
 	"github.com/fipress/fiputil"
 	"os"
 	"path/filepath"
-	"text/template"
 )
 
 const (
@@ -48,19 +47,7 @@ func createProject(name string, ctx *context) {
 		return
 	}
 
-	createConfigFile(fullPath, name)
+	createPackageConfig(filepath.Join(fullPath, packageConfigFile))
 
 	fmt.Println("A new project created.")
-}
-
-func createConfigFile(path, name string) {
-	t := template.Must(template.New("").Parse(packageConfTmpl))
-
-	dest, err := os.OpenFile(filepath.Join(path, packageConfigFile), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-	if err != nil {
-		//fmt.Println("Create config file failed")
-		errorf("Create config file failed")
-		return
-	}
-	t.Execute(dest, PackageConfig{Name: name, VersionCode: "1", VersionName: "1.0"})
 }

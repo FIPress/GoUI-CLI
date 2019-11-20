@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/fipress/fml"
+	"github.com/fipress/fiputil"
+	"github.com/fipress/go-rj"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -68,15 +70,16 @@ func (pt platformType) Arch() []string {
 
 // end of platformType
 
-type PackageConfig struct {
+type packageConfig struct {
+	Id          string
 	Name        string
-	VersionCode string
+	VersionCode int
 	VersionName string
 }
 
 type context struct {
 	//task taskType
-	packageConfig PackageConfig
+	packageConfig *packageConfig
 	workingDir    string
 	binDir        string
 	isProd        bool
@@ -99,17 +102,46 @@ func newContext() (c *context, ok bool) {
 	return c, true
 }
 
+func createPackageConfig(filename string) (cfg *packageConfig) {
+	cfg = &packageConfig{
+		Id:          "appId",
+		Name:        "GoUIApp Name",
+		VersionCode: 1,
+		VersionName: "0.0.1",
+	}
+	rj.MarshalToFile(cfg, filename)
+	return
+}
+
 func (c *context) loadConfig() {
-	cfg, err := fml.Load(filepath.Join(c.workingDir, packageConfigFile))
+	cfg := new(packageConfig)
+	filename := filepath.Join(c.workingDir, packageConfigFile)
+	err := rj.UnmarshalFile(filename, cfg)
 	if err != nil {
-		fmt.Println("get config failed")
-		c.packageConfig = PackageConfig{Name: "GoUIApp", VersionCode: "1", VersionName: "1.0"}
-	} else {
-		c.packageConfig.Name = cfg.GetStringOrDefault("name", "GoUIApp")
-		c.packageConfig.VersionCode = cfg.GetStringOrDefault("versionCode", "1")
-		c.packageConfig.VersionName = cfg.GetStringOrDefault("versionName", "1.0")
+		cfg = createPackageConfig(filename)
 	}
 
+	//todo: if need to update version
+	if c.isProd {
+		cfg.VersionCode++
+
+		codes := strings.Split(cfg.VersionName, ".")
+		n := len(codes)
+		str := codes[n-1]
+		num, err := strconv.Atoi(str)
+		if err != nil {
+			logError("version name is not updatable")
+			return
+		}
+
+		codes[n-1] = strconv.Itoa(num + 1)
+		cfg.VersionName = fiputil.MkString(codes, "", ".", "")
+		err = rj.MarshalToFile(cfg, filename)
+
+		if err != nil {
+			logError("Update version failed")
+		}
+	}
 }
 
 func getBinDir() (binDir string, ok bool) {

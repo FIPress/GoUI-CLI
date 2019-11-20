@@ -5,16 +5,14 @@
         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
     <Identity Name="{{.Id}}"
               Version="{{.VersionCode}}"
-              Publisher="{{.Publisher}}" />
+              Publisher="Publisher should be the same as the one in your certificate to sign the app" />
     <Properties>
         <DisplayName>{{.Name}}</DisplayName>
-        <PublisherDisplayName>{{.PublisherName}}</PublisherDisplayName>
-        <Logo>{{.Logo150}}</Logo>
+        <PublisherDisplayName></PublisherDisplayName>
+        <Logo></Logo>
     </Properties>
     <Resources>
-        {{range .Languages}}
-            <Resource Language="{{.}}" />
-        {{end}}
+        <Resource Language="en-us" />
     </Resources>
     <Dependencies>
         <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.0.0" MaxVersionTested="10.0.0.0" />
@@ -25,8 +23,8 @@
     -->
     <Applications>
         <Application Id="{{.Id}}" Executable="{{.Executable}}" EntryPoint="Windows.FullTrustApplication">
-            <uap:VisualElements DisplayName="{{.Name}}" Description="{{.Desc}}"	Square150x150Logo="{{.Logo150}}"
-                                Square44x44Logo="{{.Logo44}}"	BackgroundColor="{{.BackgroundColor}}" />
+            <uap:VisualElements DisplayName="{{.Name}}" Description=""	Square150x150Logo=""
+                                Square44x44Logo=""	BackgroundColor="" />
         </Application>
     </Applications>
 </Package>
