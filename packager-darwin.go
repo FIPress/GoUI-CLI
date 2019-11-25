@@ -29,7 +29,7 @@ func (dp *darwinPackager) createDarwinApp(arch string, copyFunc func()) {
 	}
 
 	copyFunc()
-	pkgPath := filepath.Join(dp.outputDir, dp.packageConfig.Name+".app")
+	pkgPath := filepath.Join(dp.outputDir, dp.Name+".app")
 	err = os.Rename(dp.tempDir, pkgPath)
 	if err != nil {
 		errorf("Rename failed: %s", err)
@@ -40,7 +40,7 @@ func (dp *darwinPackager) createDarwinApp(arch string, copyFunc func()) {
 
 func (dp *darwinPackager) runBuildCmd(arch string) (err error) {
 	dp.tempDir = filepath.Join(dp.outputDir, "temp")
-	executable = filepath.Join(dp.tempDir, dp.packageConfig.Name)
+	executable = filepath.Join(dp.tempDir, dp.Name)
 	//genSettings(settings{Platform:platform})
 
 	cmd := NewCommand("go", "build", "-v", "-o", executable /*,"-ldflags=\"-extld=$CC\""*/)
@@ -62,7 +62,15 @@ func newIOSPackager(base *packagerBase) *iOSPackager {
 	return &iOSPackager{newDarwinPackager(base)}
 }
 
-func (ip *iOSPackager) create() {
+func (ip *iOSPackager) buildOnly() {
+
+}
+
+func (ip *iOSPackager) packOnly() {
+
+}
+
+func (ip *iOSPackager) buildAndPack() {
 	//todo: other archs
 	arch := ip.platform.Arch()[0]
 	if simulator {
@@ -82,7 +90,15 @@ func newMacOSPackager(base *packagerBase) *macOSPackager {
 	return &macOSPackager{newDarwinPackager(base)}
 }
 
-func (mp *macOSPackager) create() {
+func (mp *macOSPackager) buildOnly() {
+
+}
+
+func (mp *macOSPackager) packOnly() {
+
+}
+
+func (mp *macOSPackager) buildAndPack() {
 	//todo: other archs
 	mp.createDarwinApp(mp.platform.Arch()[0], func() {
 		fiputil.CopyFile(filepath.Join(assetDir, mp.platform.String(), plistFile), filepath.Join(mp.tempDir, plistFile))

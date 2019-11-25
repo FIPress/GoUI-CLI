@@ -71,7 +71,6 @@ func (pt platformType) Arch() []string {
 // end of platformType
 
 type packageConfig struct {
-	Id          string
 	Name        string
 	VersionCode int
 	VersionName string
@@ -79,10 +78,10 @@ type packageConfig struct {
 
 type context struct {
 	//task taskType
-	packageConfig *packageConfig
-	workingDir    string
-	binDir        string
-	isProd        bool
+	*packageConfig
+	workingDir string
+	binDir     string
+	isProd     bool
 }
 
 func newContext() (c *context, ok bool) {
@@ -104,7 +103,6 @@ func newContext() (c *context, ok bool) {
 
 func createPackageConfig(filename string) (cfg *packageConfig) {
 	cfg = &packageConfig{
-		Id:          "appId",
 		Name:        "GoUIApp Name",
 		VersionCode: 1,
 		VersionName: "0.0.1",
@@ -142,6 +140,7 @@ func (c *context) loadConfig() {
 			logError("Update version failed")
 		}
 	}
+	c.packageConfig = cfg
 }
 
 func getBinDir() (binDir string, ok bool) {

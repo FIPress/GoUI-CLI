@@ -12,7 +12,7 @@ window.goui = (function() {
 
             obj.success = function(data) {
                 if(options.success) {
-                    var data = {url:options.success,data:data};
+                    data = {url:options.success,data:data};
                     agent.invokeBackend(JSON.stringify(data));
                 }
             };
@@ -30,13 +30,11 @@ window.goui = (function() {
                     data = JSON.stringify(data);
                 }
                 if (window.webkit) {
-                    alert("webkit");
                     window.webkit.messageHandlers.goui.postMessage(data);
                 } else if (window.gouiAndroid){
-                    alert("gouiAndroid");
                     window.gouiAndroid.handleMessage(data);
-                } else {
-                    //todo: windows
+                } else if(window.external) {
+                    window.external.notify(data);
                 }
 
             };

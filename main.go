@@ -50,14 +50,14 @@ func main() {
 		if task == create {
 			createProject(args[1], ctx)
 		} else {
-			ctx.loadConfig()
-			pkg, ok := getPackager(ctx, args[1])
-
 			if l > 2 {
 				if args[2] == "-prod" {
 					ctx.isProd = true
 				}
 			}
+
+			ctx.loadConfig()
+			pkg, ok := getPackager(ctx, args[1])
 
 			if pkg.getPlatform() == unknown {
 				showHelp()
@@ -68,7 +68,7 @@ func main() {
 				return
 			}
 
-			pkg.create()
+			pkg.buildAndPack()
 		}
 	}
 

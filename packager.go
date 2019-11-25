@@ -67,7 +67,9 @@ func (a archType) androidToolchain() androidToolchain {
 // end of archType
 
 type packager interface {
-	create()
+	buildOnly()
+	packOnly()
+	buildAndPack()
 	getPlatform() platformType
 }
 
@@ -86,14 +88,14 @@ func (base *packagerBase) getPlatform() platformType {
 	return base.platform
 }
 
-func (base *packagerBase) getPlatformPackageCfg(cfg interface{}) {
+func (base *packagerBase) getPlatformConfig(cfg interface{}) {
 	dir := filepath.Join(base.workingDir, base.platform.String())
 	_, err := os.Stat(dir)
 	if err != nil {
 		fiputil.CopyDir(filepath.Join(base.binDir, base.platform.String()), dir, nil)
 	}
 
-	cfgFile := filepath.Join(dir, packageConfigFile)
+	cfgFile := filepath.Join(dir, "config.rj")
 
 	err = rj.UnmarshalFile(cfgFile, cfg)
 	if err != nil {
@@ -112,7 +114,7 @@ func getPackager(ctx *context, platform string) (pkg packager, ok bool) {
 	base.platformDir = filepath.Join(base.workingDir, base.platform.String())
 	base.srcPath = filepath.Join(base.workingDir, base.platform.String())
 	base.tempDir = filepath.Join(base.outputDir, "temp")
-	base.appName = strings.ToLower(base.packageConfig.Name)
+	base.appName = strings.ToLower(base.Name)
 
 	switch base.platform {
 	case android:

@@ -78,7 +78,15 @@ func newAndroidPackager(base *packagerBase) (packager, bool) {
 	return &androidPackager{packagerBase: base}, true
 }
 
-func (ap *androidPackager) create() {
+func (ap *androidPackager) buildOnly() {
+
+}
+
+func (ap *androidPackager) packOnly() {
+
+}
+
+func (ap *androidPackager) buildAndPack() {
 	_, err := os.Stat(ap.tempDir)
 	if err == nil {
 		os.Remove(ap.tempDir)
